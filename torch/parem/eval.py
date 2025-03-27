@@ -231,3 +231,6 @@ def get_pgd(class_inst, generator, dataset) -> Algorithm:
         device=DEVICE,
         theta_optimizer=OPTIMIZER,
     )
+    
+if __name__ == "__main__":
+    run()

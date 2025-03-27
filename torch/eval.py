@@ -18,7 +18,7 @@ from parem.models import NLVM  # Generator network model
 from parem.utils import get_mnist
 from parem.stats import compute_fid
 
-
+MODEL_CKPT_PATH = "/content/ParEM/checkpoints"
 DATASET_PATH = "/content/ParEM/datasets/MNIST"
 N_IMAGES = 10000
 # Training settings
@@ -75,12 +75,12 @@ def run(name, task):
     lvm = get_model(name, generator, mnist_train)
 
     model_save_path = os.path.join(
-        "/content/ParEM/checkpoints",
+        MODEL_CKPT_PATH,
         f"{name}_generator.pth"
     )
 
     metrics_file = os.path.join(
-        "/content/ParEM/checkpoints",
+        MODEL_CKPT_PATH,
         f"{name}_metrics.yaml"
     )
 

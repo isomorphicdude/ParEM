@@ -826,15 +826,14 @@ class VI(Algorithm):
         self.train()
 
         # Samples from the posterior
-        mu, var = self._encoder(img_batch)
+        mu, logvar = self._encoder(img_batch)
         z = torch.randn(img_batch.shape[0],
                         self.n_particles,
-                        self._model.x_dim).to(mu.device) * var.exp().unsqueeze(1)\
-            ** 0.5 + mu.unsqueeze(1)
+                        self._model.x_dim).to(mu.device) * torch.exp(0.5 * logvar).unsqueeze(1) + mu.unsqueeze(1)
 
         # Compute loss
         log_prob = self._model.log_p_v(img_batch, z).mean()
-        kl = 0.5 * (1 + var - mu ** 2 - var.exp()).sum()
+        kl = 0.5 * (1 + logvar - mu ** 2 - logvar.exp()).sum()
         # There is an additional multiplicative constant
         # that is the dataset size.
         loss = - (log_prob - kl) * (1. / img_batch.shape[0])
@@ -904,11 +903,10 @@ class VI(Algorithm):
         else:
             # use VAE's encoder
             self.eval()
-            mu, var = self._encoder(images.to(self.device))
+            mu, logvar = self._encoder(images.to(self.device))
             z = torch.randn(images.shape[0],
                             1,
-                            self._model.x_dim).to(mu.device) * var.exp().unsqueeze(1) \
-                ** 0.5 + mu.unsqueeze(1)
+                            self._model.x_dim).to(mu.device) * torch.exp(0.5 * logvar).unsqueeze(1) + mu.unsqueeze(1)
             z = z.view(images.shape[0], self._model.x_dim)
             return z
             

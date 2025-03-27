@@ -133,12 +133,17 @@ def get_fid(lvm, n_samples, save_samples=False):
     Compute fid between model and data samples (randomly subsampled)
     """
     name = lvm._model.__class__.__name__.lower()
+    print(f"Computing FID for {name}")
+    
     idx = torch.randint(0, len(lvm.dataset), size=(n_samples,))
+    print("Synthesizing images...")
     gmm_samples = lvm.synthesize_images(n_samples,
                                            show=False,
                                            approx_type='gmm')
     data_samples = torch.stack([lvm.dataset[_id][0]
                                 for _id in idx], dim=0)
+    
+    print("Computing FID...")
     gmm_fid = compute_fid(data_samples,gmm_samples,nn_feature=None)
 
     # Images sampled from prior
@@ -153,10 +158,13 @@ def get_fid(lvm, n_samples, save_samples=False):
 
 
 def get_inpaint(lvm, n_samples, val_dataset, batch_size=100, mask=None):
+    name = lvm._model.__class__.__name__.lower()
+    print(f"Computing inpainting for {name}")
     indices = torch.randint(0, len(val_dataset), size=(n_samples,))
     mse_total = 0.0
     num_batches = (n_samples + batch_size - 1) // batch_size  # ceiling division
     for b in range(num_batches):
+        print(f"Batch {b+1}/{num_batches}")
         batch_indices = indices[b*batch_size:(b+1)*batch_size]
         batch_imgs = torch.stack([val_dataset[idx][0] for idx in batch_indices])
         batch_reconstructed = lvm.reconstruct(batch_imgs, mask, show=False)
@@ -170,6 +178,8 @@ def get_inpaint(lvm, n_samples, val_dataset, batch_size=100, mask=None):
 def get_recon(lvm, n_samples, train_dataset, val_dataset, batch_size=100):
     #TODO: add FID
     # for no masks on val and train
+    name = lvm._model.__class__.__name__.lower()
+    print(f"Computing reconstruction for {name}")
     train_indices = torch.randint(0, len(train_dataset), size=(n_samples,))
     val_indices = torch.randint(0, len(val_dataset), size=(n_samples,))
     num_batches = (n_samples + batch_size - 1) // batch_size  # ceiling division
@@ -178,6 +188,7 @@ def get_recon(lvm, n_samples, train_dataset, val_dataset, batch_size=100):
     mse_val = 0.0
     
     for b in range(num_batches):
+        print(f"Batch {b+1}/{num_batches}")
         train_batch_indices = train_indices[b*batch_size:(b+1)*batch_size]
         val_batch_indices = val_indices[b*batch_size:(b+1)*batch_size]
         

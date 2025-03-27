@@ -888,7 +888,6 @@ class VI(Algorithm):
                ) -> TensorType[..., 'n_channels', 'width', 'height']:
         if mask is not None:
             return super().encode(images, mask, n_starts, patience)
-        
         else:
             # use VAE's encoder
             self.eval()

@@ -16,7 +16,7 @@ import numpy as np
 # Import custom modules
 from parem.algorithms import Algorithm, PGD, ShortRun, VI, AlternatingBackprop
 from parem.models import NLVM  # Generator network model
-from parem.utils import get_mnist
+from parem.utils import get_mnist, load_model_ckpt
 from parem.stats import compute_fid
 
 MODEL_CKPT_PATH = "/content/ParEM/checkpoints"
@@ -92,9 +92,8 @@ def run(name, task):
 
     # load checkpoint
     try:
-        checkpoint = torch.load(model_save_path, weights_only=True)
-        lvm._model.load_state_dict(checkpoint['generator'])
-        lvm._posterior = checkpoint['particles']
+        print(f"Loading checkpoint from {model_save_path}")
+        load_model_ckpt(model_save_path, lvm)
     except FileNotFoundError:
         print(f"Checkpoint not found at {model_save_path}")
         lvm.run(N_EPOCHS,
@@ -147,7 +146,7 @@ def get_fid(lvm, n_samples, save_samples=False):
     """
     Compute fid between model and data samples (randomly subsampled)
     """
-    name = lvm._model.__class__.__name__.lower()
+    name = lvm.__class__.__name__.lower()
     print(f"Computing FID for {name}")
     
     idx = torch.randint(0, len(lvm.dataset), size=(n_samples,))
@@ -180,7 +179,7 @@ def get_fid(lvm, n_samples, save_samples=False):
 
 
 def get_inpaint(lvm, n_samples, val_dataset, batch_size=100, mask=None):
-    name = lvm._model.__class__.__name__.lower()
+    name = lvm.__class__.__name__.lower()
     print(f"Computing inpainting for {name}")
     indices = torch.randint(0, len(val_dataset), size=(n_samples,))
     mse_total = 0.0
@@ -207,7 +206,7 @@ def get_inpaint(lvm, n_samples, val_dataset, batch_size=100, mask=None):
 def get_recon(lvm, n_samples, train_dataset, val_dataset, batch_size=100):
     #TODO: add FID
     # for no masks on val and train
-    name = lvm._model.__class__.__name__.lower()
+    name = lvm.__class__.__name__.lower()
     print(f"Computing reconstruction for {name}")
     train_indices = torch.randint(0, len(train_dataset), size=(n_samples,))
     val_indices = torch.randint(0, len(val_dataset), size=(n_samples,))

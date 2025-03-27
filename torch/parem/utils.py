@@ -74,7 +74,19 @@ def save_model_ckpt(algorithm, path: Union[str, Path]) -> None:
         'generator': algorithm._model.state_dict(),
         'particles': algorithm._posterior
     }
+    if hasattr(algorithm, "_encoder"):
+        checkpoint['encoder'] = algorithm._encoder.state_dict()
     torch.save(checkpoint, path)
+    
+def load_model_ckpt(path: Union[str, Path], algorithm) -> None:
+    """Loads model checkpoint from path."""
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    checkpoint = torch.load(path, map_location=torch.device(device))
+    algorithm._model.load_state_dict(checkpoint['generator'])
+    algorithm._posterior = checkpoint['particles']
+    if hasattr(algorithm, "_encoder"):
+        algorithm._encoder.load_state_dict(checkpoint['encoder'])
+    return algorithm
 
 def load_checkpoint(path: Union[str, Path]):
     """Loads checkpoint from path."""

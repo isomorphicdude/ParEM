@@ -8,13 +8,15 @@ from torchtyping import TensorType
 from torchmetrics.image.fid import FrechetInceptionDistance
 
 
-def compute_fid(dataset_samples: TensorType[..., 'n_channels', 'width', 'height'],
-                model_samples: TensorType[..., 'n_channels', 'width', 'height'],
-                device: str = 'cuda',
-                nn_feature: bool = None):
+def compute_fid(
+    dataset_samples: TensorType[..., "n_channels", "width", "height"],
+    model_samples: TensorType[..., "n_channels", "width", "height"],
+    device: str = "cuda",
+    nn_feature: bool = None,
+):
     # Sample images from model and from dataset
-    real_images = ((dataset_samples + 1.) / 2 * 255).to(torch.uint8)
-    fake_images = ((model_samples + 1.) / 2 * 255).to(torch.uint8)
+    real_images = ((dataset_samples + 1.0) / 2 * 255).to(torch.uint8)
+    fake_images = ((model_samples + 1.0) / 2 * 255).to(torch.uint8)
 
     if nn_feature is None:
         feature = 2048
@@ -23,8 +25,8 @@ def compute_fid(dataset_samples: TensorType[..., 'n_channels', 'width', 'height'
             fake_images = fake_images.repeat(1, 3, 1, 1)
     else:
         feature = nn_feature
-        real_images = 2 * (real_images.to(torch.float32) / 255. - 0.5)
-        fake_images = 2 * (fake_images.to(torch.float32) / 255. - 0.5)
+        real_images = 2 * (real_images.to(torch.float32) / 255.0 - 0.5)
+        fake_images = 2 * (fake_images.to(torch.float32) / 255.0 - 0.5)
 
     fid = FrechetInceptionDistance(feature=feature).to(device)
     fid.update(real_images.to(device), real=True)  # Add real images

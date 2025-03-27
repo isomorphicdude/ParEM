@@ -44,7 +44,7 @@ VAE_Q_OPTIM = "adam"
 VAE_THETA_OPTIM = "rmsprop"
 VAE_Q_LR = 1e-3
 VAE_THETA_LR = 1e-3
-CHAIN_PARAM = False # whether to use the same optimizer for q and theta
+CHAIN_PARAM = False  # whether to use the same optimizer for q and theta
 
 
 @click.command()
@@ -109,21 +109,21 @@ def run(name, task, sigma2, kl_coeff, use_new_arch, use_enc_recon, just_train):
     # Initialize the NLVM model
     generator = NLVM(x_dim=X_DIM, sigma2=sigma2, nc=1).to(DEVICE)
 
-    lvm = get_model(name, generator, mnist_train, kl_coeff=kl_coeff, use_new_arch=use_new_arch,
-                    use_enc_recon=use_enc_recon)
-    
-    os.makedirs(MODEL_CKPT_PATH, exist_ok=True)
-    os.makedirs(MODEL_IMG_PATH, exist_ok=True)
-    
-    model_save_path = os.path.join(
-        MODEL_CKPT_PATH,
-        f"{name}_algo.pth"
+    lvm = get_model(
+        name,
+        generator,
+        mnist_train,
+        kl_coeff=kl_coeff,
+        use_new_arch=use_new_arch,
+        use_enc_recon=use_enc_recon,
     )
 
-    metrics_file = os.path.join(
-        MODEL_CKPT_PATH,
-        f"{name}_metrics.yaml"
-    )
+    os.makedirs(MODEL_CKPT_PATH, exist_ok=True)
+    os.makedirs(MODEL_IMG_PATH, exist_ok=True)
+
+    model_save_path = os.path.join(MODEL_CKPT_PATH, f"{name}_algo.pth")
+
+    metrics_file = os.path.join(MODEL_CKPT_PATH, f"{name}_metrics.yaml")
 
     # load checkpoint
     try:
@@ -133,18 +133,19 @@ def run(name, task, sigma2, kl_coeff, use_new_arch, use_enc_recon, just_train):
             raise FileNotFoundError
     except FileNotFoundError:
         print(f"Checkpoint not found at {model_save_path}")
-        lvm.run(N_EPOCHS,
-                model_save_path,
-                wandb_log=False,
-                log_images=False,
-                compute_stats=False)
+        lvm.run(
+            N_EPOCHS,
+            model_save_path,
+            wandb_log=False,
+            log_images=False,
+            compute_stats=False,
+        )
 
-    
-    metrics = {'model': name}
-    
+    metrics = {"model": name}
+
     if just_train:
         task = None
-        
+
     if task == "fid":
         gmm_fid, stdg_fid = get_fid(lvm, n_samples=1000, save_samples=False)
         metrics["gmm_fid"] = gmm_fid
@@ -155,11 +156,19 @@ def run(name, task, sigma2, kl_coeff, use_new_arch, use_enc_recon, just_train):
         for i in range(10, 22):
             for j in range(10, 22):
                 mask[i, j] = False
-        recon_mse = get_inpaint(lvm, n_samples=1000, val_dataset=mnist_test, batch_size=100, mask=mask)
+        recon_mse = get_inpaint(
+            lvm, n_samples=1000, val_dataset=mnist_test, batch_size=100, mask=mask
+        )
         metrics["recon_mse"] = recon_mse
         print(f"Reconstruction MSE: {recon_mse}")
     elif task == "recon":
-        mse_train, mse_val = get_recon(lvm, n_samples=1000, train_dataset=mnist_train, val_dataset=mnist_test, batch_size=100)
+        mse_train, mse_val = get_recon(
+            lvm,
+            n_samples=1000,
+            train_dataset=mnist_train,
+            val_dataset=mnist_test,
+            batch_size=100,
+        )
         metrics["mse_train"] = mse_train
         metrics["mse_val"] = mse_val
         print(f"Train MSE: {mse_train}, Val MSE: {mse_val}")
@@ -180,9 +189,8 @@ def run(name, task, sigma2, kl_coeff, use_new_arch, use_enc_recon, just_train):
     previous_results.append(metrics)
     with open(metrics_file, "w") as f:
         yaml.dump(previous_results, f)
-        
-    print(f"Metrics saved to {metrics_file}")
 
+    print(f"Metrics saved to {metrics_file}")
 
 
 def get_fid(lvm, n_samples, save_samples=False):
@@ -191,33 +199,38 @@ def get_fid(lvm, n_samples, save_samples=False):
     """
     name = lvm.__class__.__name__.lower()
     print(f"Computing FID for {name}")
-    
+
     idx = torch.randint(0, len(lvm.dataset), size=(n_samples,))
     print("Synthesizing images...")
-    gmm_samples = lvm.synthesize_images(n_samples,
-                                           show=False,
-                                           approx_type='gmm')
-    data_samples = torch.stack([lvm.dataset[_id][0]
-                                for _id in idx], dim=0)
-    
+    gmm_samples = lvm.synthesize_images(n_samples, show=False, approx_type="gmm")
+    data_samples = torch.stack([lvm.dataset[_id][0] for _id in idx], dim=0)
+
     print("Computing FID...")
-    gmm_fid = compute_fid(data_samples,gmm_samples,nn_feature=None)
+    gmm_fid = compute_fid(data_samples, gmm_samples, nn_feature=None)
 
     # Images sampled from prior
     stdg_samples, _ = lvm._model.sample(n_samples)
-    stdg_fid = compute_fid(data_samples,stdg_samples,nn_feature=None)
+    stdg_fid = compute_fid(data_samples, stdg_samples, nn_feature=None)
 
     if save_samples:
-        torch.save(data_samples, os.path.join(MODEL_IMG_PATH, f"{name}_data_samples.pt"))
+        torch.save(
+            data_samples, os.path.join(MODEL_IMG_PATH, f"{name}_data_samples.pt")
+        )
         torch.save(gmm_samples, os.path.join(MODEL_IMG_PATH, f"{name}_gmm_samples.pt"))
-        torch.save(stdg_samples, os.path.join(MODEL_IMG_PATH, f"{name}_stdg_samples.pt"))
-        
+        torch.save(
+            stdg_samples, os.path.join(MODEL_IMG_PATH, f"{name}_stdg_samples.pt")
+        )
+
     # plot and save images
-    gmm_grid = torchvision.utils.make_grid(gmm_samples[:100,...], nrow=10)
+    gmm_grid = torchvision.utils.make_grid(gmm_samples[:100, ...], nrow=10)
     stdg_grid = torchvision.utils.make_grid(stdg_samples[:100, ...], nrow=10)
-    torchvision.utils.save_image(gmm_grid, os.path.join(MODEL_IMG_PATH, f"{name}_gmm_samples.png"))
-    torchvision.utils.save_image(stdg_grid, os.path.join(MODEL_IMG_PATH, f"{name}_stdg_samples.png"))
-    
+    torchvision.utils.save_image(
+        gmm_grid, os.path.join(MODEL_IMG_PATH, f"{name}_gmm_samples.png")
+    )
+    torchvision.utils.save_image(
+        stdg_grid, os.path.join(MODEL_IMG_PATH, f"{name}_stdg_samples.png")
+    )
+
     return gmm_fid, stdg_fid
 
 
@@ -229,70 +242,97 @@ def get_inpaint(lvm, n_samples, val_dataset, batch_size=100, mask=None):
     num_batches = (n_samples + batch_size - 1) // batch_size  # ceiling division
     for b in range(num_batches):
         print(f"Batch {b+1}/{num_batches}")
-        batch_indices = indices[b*batch_size:(b+1)*batch_size]
+        batch_indices = indices[b * batch_size : (b + 1) * batch_size]
         batch_imgs = torch.stack([val_dataset[idx][0] for idx in batch_indices])
         batch_reconstructed = lvm.reconstruct(batch_imgs, mask, show=False)
-        batch_mse = ((batch_imgs - batch_reconstructed) ** 2).mean(dim=[1,2,3])
+        batch_mse = ((batch_imgs - batch_reconstructed) ** 2).mean(dim=[1, 2, 3])
         mse_total += batch_mse.sum().item()
 
     mse = mse_total / n_samples
-    
+
     # plot and save images
     true_grid = torchvision.utils.make_grid(batch_imgs, nrow=10)
     recon_grid = torchvision.utils.make_grid(batch_reconstructed, nrow=10)
-    torchvision.utils.save_image(true_grid, os.path.join(MODEL_IMG_PATH, f"{name}_true.png"))
-    torchvision.utils.save_image(recon_grid, os.path.join(MODEL_IMG_PATH, f"{name}_recon.png"))
-    
+    torchvision.utils.save_image(
+        true_grid, os.path.join(MODEL_IMG_PATH, f"{name}_true.png")
+    )
+    torchvision.utils.save_image(
+        recon_grid, os.path.join(MODEL_IMG_PATH, f"{name}_recon.png")
+    )
+
     return mse
 
 
 def get_recon(lvm, n_samples, train_dataset, val_dataset, batch_size=100):
-    #TODO: add FID
+    # TODO: add FID
     # for no masks on val and train
     name = lvm.__class__.__name__.lower()
     print(f"Computing reconstruction for {name}")
     train_indices = torch.randint(0, len(train_dataset), size=(n_samples,))
     val_indices = torch.randint(0, len(val_dataset), size=(n_samples,))
     num_batches = (n_samples + batch_size - 1) // batch_size  # ceiling division
-    
+
     mse_train = 0.0
     mse_val = 0.0
-    
+
     for b in range(num_batches):
         print(f"Batch {b+1}/{num_batches}")
-        train_batch_indices = train_indices[b*batch_size:(b+1)*batch_size]
-        val_batch_indices = val_indices[b*batch_size:(b+1)*batch_size]
-        
-        # 
-        train_batch_imgs = torch.stack([train_dataset[idx][0] for idx in train_batch_indices])
+        train_batch_indices = train_indices[b * batch_size : (b + 1) * batch_size]
+        val_batch_indices = val_indices[b * batch_size : (b + 1) * batch_size]
+
+        #
+        train_batch_imgs = torch.stack(
+            [train_dataset[idx][0] for idx in train_batch_indices]
+        )
         val_batch_imgs = torch.stack([val_dataset[idx][0] for idx in val_batch_indices])
-        
+
         train_batch_reconstructed = lvm.reconstruct(train_batch_imgs, show=False)
         val_batch_reconstructed = lvm.reconstruct(val_batch_imgs, show=False)
-        
-        train_batch_mse = ((train_batch_imgs - train_batch_reconstructed) ** 2).mean(dim=[1,2,3])
-        val_batch_mse = ((val_batch_imgs - val_batch_reconstructed) ** 2).mean(dim=[1,2,3])
-        
+
+        train_batch_mse = ((train_batch_imgs - train_batch_reconstructed) ** 2).mean(
+            dim=[1, 2, 3]
+        )
+        val_batch_mse = ((val_batch_imgs - val_batch_reconstructed) ** 2).mean(
+            dim=[1, 2, 3]
+        )
+
         mse_train += train_batch_mse.sum().item()
         mse_val += val_batch_mse.sum().item()
-        
+
     mse_train /= n_samples
     mse_val /= n_samples
-    
+
     # plot and save images
     train_true_grid = torchvision.utils.make_grid(train_batch_imgs, nrow=10)
     train_recon_grid = torchvision.utils.make_grid(train_batch_reconstructed, nrow=10)
     val_true_grid = torchvision.utils.make_grid(val_batch_imgs, nrow=10)
     val_recon_grid = torchvision.utils.make_grid(val_batch_reconstructed, nrow=10)
-    
-    torchvision.utils.save_image(train_true_grid, os.path.join(MODEL_IMG_PATH, f"{name}_train_true.png"))
-    torchvision.utils.save_image(train_recon_grid, os.path.join(MODEL_IMG_PATH, f"{name}_train_recon.png"))
-    torchvision.utils.save_image(val_true_grid, os.path.join(MODEL_IMG_PATH, f"{name}_val_true.png"))
-    torchvision.utils.save_image(val_recon_grid, os.path.join(MODEL_IMG_PATH, f"{name}_val_recon.png"))
-    
+
+    torchvision.utils.save_image(
+        train_true_grid, os.path.join(MODEL_IMG_PATH, f"{name}_train_true.png")
+    )
+    torchvision.utils.save_image(
+        train_recon_grid, os.path.join(MODEL_IMG_PATH, f"{name}_train_recon.png")
+    )
+    torchvision.utils.save_image(
+        val_true_grid, os.path.join(MODEL_IMG_PATH, f"{name}_val_true.png")
+    )
+    torchvision.utils.save_image(
+        val_recon_grid, os.path.join(MODEL_IMG_PATH, f"{name}_val_recon.png")
+    )
+
     return mse_train, mse_val
 
-def get_model(name, generator, dataset, chain_param=CHAIN_PARAM, kl_coeff=1.0, use_new_arch=False, use_enc_recon=False) -> Algorithm:
+
+def get_model(
+    name,
+    generator,
+    dataset,
+    chain_param=CHAIN_PARAM,
+    kl_coeff=1.0,
+    use_new_arch=False,
+    use_enc_recon=False,
+) -> Algorithm:
     if name == "pgd":
         return get_pgd(PGD, generator, dataset)
     elif name == "shortrun":
@@ -330,6 +370,7 @@ def get_pgd(class_inst, generator, dataset) -> Algorithm:
         device=DEVICE,
         theta_optimizer=OPTIMIZER,
     )
-    
+
+
 if __name__ == "__main__":
     run()

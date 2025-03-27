@@ -179,58 +179,66 @@ class NLVM(nn.Module):
 
 
 
-class NormalVI(nn.Module):
+class EncoderOutput(nn.Module):
     """
-    Modern VAE encoder using strided convolutions for downsampling and GroupNorm for normalization.
+    The Encoder Output Layer.
+    Maps features to mean and log variance for the latent vector.
     """
-    def __init__(self,
-                 x_dim: int,
-                 n_in_channel: int = 1,
-                 n_out_channel: int = 16,
-                 n_hidden: int = 512,
-                 num_groups: int = 4):
-        """
-        :param x_dim: Dimension of the latent variable.
-        :param n_in_channel: Number of channels of the input images.
-        :param n_out_channel: Base number of channels for the first conv layer.
-        :param n_hidden: Dimension of the hidden fully connected layer.
-        :param num_groups: Number of groups for GroupNorm.
-        """
-        super().__init__()
-        self.x_dim = x_dim
-        
-        self.conv = nn.Sequential(
-            # 32x32 to 16x16.
-            nn.Conv2d(n_in_channel, n_out_channel, kernel_size=3, stride=2, padding=1),
-            nn.GroupNorm(num_groups, n_out_channel),
-            nn.ReLU(),
-            # 16x16 to 8x8.
-            nn.Conv2d(n_out_channel, n_out_channel * 2, kernel_size=3, stride=2, padding=1),
-            nn.GroupNorm(num_groups, n_out_channel * 2),
-            nn.ReLU()
-        )
 
-        self.flattened_dim = 8 * 8 * n_out_channel * 2
+    def __init__(self, in_dim: int, latent_dim: int):
+        super(EncoderOutput, self).__init__()
 
-        self.fc = nn.Sequential(
-            nn.Linear(self.flattened_dim, n_hidden),
-            nn.ReLU()
-        )
-        self.fc_mu = nn.Linear(n_hidden, x_dim)
-        self.fc_logvar = nn.Linear(n_hidden, x_dim)
+        self.fc_mu = nn.Linear(in_dim, latent_dim)
+        self.fc_logvar = nn.Linear(in_dim, latent_dim)
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward pass through the encoder.
-        
-        :param x: Input tensor of shape [n_batch, n_channels, width, height].
-        :return: A tuple (mu, logvar) where each is of shape [n_batch, x_dim].
-        """
-        x = self.conv(x)
-        x = torch.flatten(x, start_dim=1)
-        x = self.fc(x)
+    def forward(
+        self, x: TensorType[..., "in_dim"]
+    ) -> Tuple[TensorType[..., "latent_dim"], TensorType[..., "latent_dim"]]:
         mu = self.fc_mu(x)
         logvar = self.fc_logvar(x)
-        # ensure numerical stability.
-        logvar = torch.clamp(logvar, min=-10.0, max=10.0)
         return mu, logvar
+
+
+class NormalVI(nn.Module):
+    """
+    Encoder Network for a Variational Autoencoder (VAE).
+    Designed as a reverse of the NLVM generator.
+    """
+
+    def __init__(
+        self,
+        nc: int = 3,
+        ngf: int = 16,
+        coef: int = 2,
+        input_dim: int = 32,
+        latent_dim: int = 128,
+    ):
+        super(NormalVI, self).__init__()
+
+        self.input_dim = input_dim
+        self.latent_dim = latent_dim
+
+        self.reverse_deterministic_1 = Deterministic(nc, ngf)
+
+        self.downsample_conv1 = nn.Conv2d(
+            ngf, ngf * coef, kernel_size=4, stride=2, padding=1
+        )
+
+        self.downsample_conv2 = nn.Conv2d(
+            ngf * coef, ngf * coef, kernel_size=4, stride=2, padding=1
+        )
+
+        self.output_layer = EncoderOutput(
+            ngf * coef * (input_dim // 4) ** 2, latent_dim
+        )
+
+    def forward(
+        self, x: TensorType[..., "n_channels", "in_dim1", "in_dim2"]
+    ) -> Tuple[TensorType[..., "latent_dim"], TensorType[..., "latent_dim"]]:
+        out = self.reverse_deterministic_1(x)
+        out = self.downsample_conv1(out)
+        out = self.downsample_conv2(out)
+        out = out.view(out.size(0), -1)  # Flatten for output layer
+        mu, logvar = self.output_layer(out)
+        return mu, logvar
+

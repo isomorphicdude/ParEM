@@ -13,9 +13,8 @@ import torch
 import numpy as np
 
 # Import custom modules
-from parem.algorithms import Algorithm
+from parem.algorithms import Algorithm, PGD, ShortRun, VI, AlternatingBackprop
 from parem.models import NLVM  # Generator network model
-from parem.algorithms import PGD, ShortRun, VI, AlternatingBackprop
 from parem.utils import get_mnist
 from parem.stats import compute_fid
 

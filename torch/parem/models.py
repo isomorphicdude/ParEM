@@ -224,7 +224,7 @@ class NormalVI(nn.Module):
         oI_mu = self.conv51(out)
         oI_log_sigma = self.conv52(out) # actually its log variance
         # [batch nz 1 1]
-        return oI_mu, oI_log_sigma
+        return oI_mu.view(oI_mu.size(0), oI_mu.size(1)), oI_log_sigma.view(oI_log_sigma.size(0), oI_log_sigma.size(1))
 
 
 # class NormalVI(nn.Module):

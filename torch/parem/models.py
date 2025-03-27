@@ -178,32 +178,36 @@ class NLVM(nn.Module):
         return log_prior + log_likelihood
 
 
+
 class NormalVI(nn.Module):
     """
-    Modern implementation of the Normal Variational family for a VAE encoder.
+    Modern VAE encoder using strided convolutions for downsampling and GroupNorm for normalization.
     """
     def __init__(self,
                  x_dim: int,
                  n_in_channel: int = 1,
                  n_out_channel: int = 16,
-                 n_hidden: int = 512):
+                 n_hidden: int = 512,
+                 num_groups: int = 4):
         """
         :param x_dim: Dimension of the latent variable.
         :param n_in_channel: Number of channels of the input images.
-        :param n_out_channel: Number of channels output from the first conv layer.
-        :param n_hidden: Dimension of the hidden layer.
+        :param n_out_channel: Base number of channels for the first conv layer.
+        :param n_hidden: Dimension of the hidden fully connected layer.
+        :param num_groups: Number of groups for GroupNorm.
         """
         super().__init__()
         self.x_dim = x_dim
+        
         self.conv = nn.Sequential(
-            nn.Conv2d(n_in_channel, n_out_channel, kernel_size=3, stride=1, padding=2),
-            nn.BatchNorm2d(n_out_channel),
+            # 32x32 to 16x16.
+            nn.Conv2d(n_in_channel, n_out_channel, kernel_size=3, stride=2, padding=1),
+            nn.GroupNorm(num_groups, n_out_channel),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2),
-            nn.Conv2d(n_out_channel, n_out_channel * 2, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(n_out_channel * 2),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2)
+            # 16x16 to 8x8.
+            nn.Conv2d(n_out_channel, n_out_channel * 2, kernel_size=3, stride=2, padding=1),
+            nn.GroupNorm(num_groups, n_out_channel * 2),
+            nn.ReLU()
         )
 
         self.flattened_dim = 8 * 8 * n_out_channel * 2
@@ -212,7 +216,6 @@ class NormalVI(nn.Module):
             nn.Linear(self.flattened_dim, n_hidden),
             nn.ReLU()
         )
-        
         self.fc_mu = nn.Linear(n_hidden, x_dim)
         self.fc_logvar = nn.Linear(n_hidden, x_dim)
 
@@ -220,7 +223,7 @@ class NormalVI(nn.Module):
         """
         Forward pass through the encoder.
         
-        :param x: Input tensor of shape [n_batch, n_channels, width, width].
+        :param x: Input tensor of shape [n_batch, n_channels, width, height].
         :return: A tuple (mu, logvar) where each is of shape [n_batch, x_dim].
         """
         x = self.conv(x)
@@ -228,5 +231,6 @@ class NormalVI(nn.Module):
         x = self.fc(x)
         mu = self.fc_mu(x)
         logvar = self.fc_logvar(x)
+        # ensure numerical stability.
         logvar = torch.clamp(logvar, min=-10.0, max=10.0)
         return mu, logvar

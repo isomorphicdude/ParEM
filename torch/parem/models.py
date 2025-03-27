@@ -204,32 +204,30 @@ class NormalVI(nn.Module):
     Encoder Network for a Variational Autoencoder (VAE).
     Designed as a reverse of the NLVM generator.
     """
-
     def __init__(
         self,
-        nc: int = 3,
+        x_dim: int,
+        n_in_channel: int = 1,
         ngf: int = 16,
-        coef: int = 2,
-        input_dim: int = 32,
-        latent_dim: int = 128,
-    ):
+        n_hidden: int = 512,
+        latent_dim: int = 64,):
         super(NormalVI, self).__init__()
 
-        self.input_dim = input_dim
+        self.input_dim = 32
         self.latent_dim = latent_dim
 
-        self.reverse_deterministic_1 = Deterministic(nc, ngf)
+        self.reverse_deterministic_1 = Deterministic(x_dim, ngf)
 
         self.downsample_conv1 = nn.Conv2d(
-            ngf, ngf * coef, kernel_size=4, stride=2, padding=1
+            ngf, ngf * 2, kernel_size=4, stride=2, padding=1
         )
 
         self.downsample_conv2 = nn.Conv2d(
-            ngf * coef, ngf * coef, kernel_size=4, stride=2, padding=1
+            ngf * 2, ngf * 2, kernel_size=4, stride=2, padding=1
         )
 
         self.output_layer = EncoderOutput(
-            ngf * coef * (input_dim // 4) ** 2, latent_dim
+            ngf * 2 * (self.input_dim // 4) ** 2, latent_dim
         )
 
     def forward(

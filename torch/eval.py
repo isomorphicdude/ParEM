@@ -82,7 +82,7 @@ def run(name, task):
     
     model_save_path = os.path.join(
         MODEL_CKPT_PATH,
-        f"{name}_generator.pth"
+        f"{name}_algo.pth"
     )
 
     metrics_file = os.path.join(

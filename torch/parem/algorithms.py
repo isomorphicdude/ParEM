@@ -61,6 +61,9 @@ class Algorithm:
         # Initialize particles in CPU:
         self._posterior = model.sample_prior(len(dataset), n_particles)
         self._posterior_up_to_date = False  # Flag to update posterior or not.
+        
+        num_params_gen = utils.count_parameters_in_M(self._model)
+        print(f"Number of parameters in the generator: {num_params_gen:.3f}M")
 
     def step(self, *args) -> None:
         """Takes a step of the algorithm."""
@@ -787,6 +790,9 @@ class VI(Algorithm):
                                  nz=model.x_dim,
                                  nif=48)\
             .to(self.device)
+        num_encoder_params = utils.count_parameters_in_M(self._encoder)
+        print(f"Number of parameters in the encoder: {num_encoder_params:.3f}M")
+        
         self.use_common_optimizer = use_common_optimizer
         if use_common_optimizer:
             self.optimizer = OPTIMIZERS[theta_optimizer](
@@ -796,6 +802,7 @@ class VI(Algorithm):
             self._encoder_opt = OPTIMIZERS[q_optimizer](self._encoder.parameters(),
                                                         lr=q_step_size)
         self.name = 'VI'
+        
 
     def train(self):
         """
@@ -834,7 +841,7 @@ class VI(Algorithm):
 
         # Compute loss
         log_prob = self._model.log_p_v(img_batch, z).mean()
-        kl = 0.5 * (1 + logvar - mu ** 2 - logvar.exp()).sum()
+        kl = 0.5 * (1 + logvar - mu ** 2 - logvar.exp()).sum() * 1e-4
         # There is an additional multiplicative constant
         # that is the dataset size.
         loss = - (log_prob - kl) * (1. / img_batch.shape[0])
@@ -853,6 +860,7 @@ class VI(Algorithm):
             
         self._posterior_up_to_date = False
         return loss.item()
+    
     def sample_image_posterior(self, idx: int, n: int):
         """
         For a description, see inherited `Algorithm` class.

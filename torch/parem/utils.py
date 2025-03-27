@@ -38,6 +38,15 @@ def show_images(images: TensorType['n_images', 'n_channels', 'width', 'height'],
         plt.show()
     return fig, grid
 
+def count_parameters_in_M(model) -> float:
+    return (
+        np.sum(
+            np.prod(v.size())
+            for name, v in model.named_parameters()
+            if "auxiliary" not in name
+        )
+        / 1e6
+    )
 
 class DatasetWithIndicesAndDetails(TensorDataset):
     """

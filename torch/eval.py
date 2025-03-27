@@ -33,7 +33,6 @@ OPTIMIZER = "rmsprop"  # Theta optimizer
 
 # Model Settings
 X_DIM = 64  # d_x: dimension of latent space
-LIKELIHOOD_VAR = 0.01**2  # sigma^2
 
 # PGD Settings
 STEP_SIZE = 1e-4  # h: step size
@@ -60,7 +59,13 @@ VAE_THETA_LR = 1e-3
     default="recon",
     help="Task to run",
 )
-def run(name, task):
+@click.option(
+    "--sigma2",
+    type=float,
+    default=1e-4,
+    help="Likelihood variance",
+)
+def run(name, task, sigma2):
     click.echo(f"Running {name} on {task} task")
     # Set random seeds for reproducibility
     random.seed(42)
@@ -72,7 +77,7 @@ def run(name, task):
     mnist_test = get_mnist(DATASET_PATH, N_IMAGES, train=False)
 
     # Initialize the NLVM model
-    generator = NLVM(x_dim=X_DIM, sigma2=LIKELIHOOD_VAR, nc=1).to(DEVICE)
+    generator = NLVM(x_dim=X_DIM, sigma2=sigma2, nc=1).to(DEVICE)
 
     lvm = get_model(name, generator, mnist_train)
     

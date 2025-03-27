@@ -110,7 +110,11 @@ class Algorithm:
             # utils.save_checkpoint(self, path)
 
             # save the checkpoint of the generator
-            torch.save(self._model.state_dict(), path)
+            # torch.save(self._model.state_dict(), path)
+            utils.save_model_ckpt(
+                self, 
+                path
+            )
             # if wandb_log:
             #     from pathlib import Path
             #     utils.save_checkpoint(self,

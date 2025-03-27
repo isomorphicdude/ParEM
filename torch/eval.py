@@ -78,6 +78,7 @@ def run(name, task):
     
     
     os.makedirs(MODEL_CKPT_PATH, exist_ok=True)
+    os.makedirs(MODEL_IMG_PATH, exist_ok=True)
     
     model_save_path = os.path.join(
         MODEL_CKPT_PATH,

@@ -108,7 +108,6 @@ class Algorithm:
             for images, *_, idx in training_batches:
                 losses = self.step(images.to(device=self.device), idx)
                 avg_loss += losses
-                print(".", end="")
             avg_loss = avg_loss / len(training_batches)
             self._losses.append(avg_loss)
 

@@ -116,7 +116,7 @@ class Algorithm:
             self._model.eval()
             stats_dic = {}
             # Compute FID and MSE
-            if compute_stats:
+            if compute_stats and epoch > 0 and (epoch+1) % 50 == 0:
                 n_samples = 300
                 idx = torch.randint(0, len(self.dataset), size=(n_samples,))
 
@@ -168,7 +168,7 @@ class Algorithm:
                                ** stats_dic})
                 else:
                     wandb.log({"loss": avg_loss, ** stats_dic})
-                    
+
         if wandb_log:
             wandb.finish()
 

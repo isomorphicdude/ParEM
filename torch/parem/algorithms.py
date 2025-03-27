@@ -878,3 +878,24 @@ class VI(Algorithm):
                 self._posterior[idx] = z.clone().detach()\
                     .to(self._posterior.device)
         self._posterior_up_to_date = True
+    
+    
+    def encode(self,
+               images: TensorType[..., 'n_channels', 'width', 'height'],
+               mask: TensorType['width', 'height'] = None,
+               n_starts: int = 4,
+               patience: int = 50,
+               ) -> TensorType[..., 'n_channels', 'width', 'height']:
+        if mask is not None:
+            return super().encode(images, mask, n_starts, patience)
+        
+        else:
+            # use VAE's encoder
+            self.eval()
+            mu, var = self._encoder(images)
+            z = torch.randn(images.shape[0],
+                            self.n_particles,
+                            self._model.x_dim).to(mu.device) * var.unsqueeze(1)\
+                ** 0.5 + mu.unsqueeze(1)
+            return z
+            

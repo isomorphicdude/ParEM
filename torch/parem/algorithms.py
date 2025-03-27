@@ -901,15 +901,15 @@ class VI(Algorithm):
                n_starts: int = 1,
                patience: int = 50,
                ) -> TensorType[..., 'n_channels', 'width', 'height']:
-        if mask is not None:
-            return super().encode(images, mask, n_starts, patience)
-        else:
-            # use VAE's encoder
-            self.eval()
-            mu, logvar = self._encoder(images.to(self.device))
-            z = torch.randn(images.shape[0],
-                            1,
-                            self._model.x_dim).to(mu.device) * torch.exp(0.5 * logvar).unsqueeze(1) + mu.unsqueeze(1)
-            z = z.view(images.shape[0], self._model.x_dim)
-            return z
+        # if mask is not None:
+        return super().encode(images, mask, n_starts, patience)
+        # else:
+        #     # use VAE's encoder
+        #     self.eval()
+        #     mu, logvar = self._encoder(images.to(self.device))
+        #     z = torch.randn(images.shape[0],
+        #                     1,
+        #                     self._model.x_dim).to(mu.device) * torch.exp(0.5 * logvar).unsqueeze(1) + mu.unsqueeze(1)
+        #     z = z.view(images.shape[0], self._model.x_dim)
+        #     return z
             

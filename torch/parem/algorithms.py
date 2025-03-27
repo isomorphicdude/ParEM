@@ -161,9 +161,7 @@ class Algorithm:
                 )
                 stats_dic = {"gmm_fid": gmm_fid, "stdg_fid": stdg_fid, "mse": mse}
             if epoch % 20 == 0:
-                print(
-                    f"Epoch {epoch}: Loss {avg_loss:.3f}"
-                )
+                print(f"Epoch {epoch}: Loss {avg_loss:.3f}")
             # Log checkpoint:
             if wandb_log:
                 if log_images:

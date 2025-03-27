@@ -73,7 +73,10 @@ def run(name, task):
     generator = NLVM(x_dim=X_DIM, sigma2=LIKELIHOOD_VAR, nc=1).to(DEVICE)
 
     lvm = get_model(name, generator, mnist_train)
-
+    
+    
+    os.makedirs(MODEL_CKPT_PATH, exist_ok=True)
+    
     model_save_path = os.path.join(
         MODEL_CKPT_PATH,
         f"{name}_generator.pth"

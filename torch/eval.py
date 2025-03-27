@@ -78,7 +78,13 @@ CHAIN_PARAM = False # whether to use the same optimizer for q and theta
     default=False,
     help="Use new architecture for the generator",
 )
-def run(name, task, sigma2, kl_coeff, use_new_arch):
+@click.option(
+    "--just-train",
+    is_flag=True,
+    default=False,
+    help="Just train the model without evaluation",
+)
+def run(name, task, sigma2, kl_coeff, use_new_arch, just_train):
     click.echo(f"Running {name} on {task} task")
     # Set random seeds for reproducibility
     random.seed(42)
@@ -111,6 +117,8 @@ def run(name, task, sigma2, kl_coeff, use_new_arch):
     try:
         print(f"Loading checkpoint from {model_save_path}")
         load_model_ckpt(model_save_path, lvm)
+        if just_train:
+            raise FileNotFoundError
     except FileNotFoundError:
         print(f"Checkpoint not found at {model_save_path}")
         lvm.run(N_EPOCHS,
@@ -121,6 +129,9 @@ def run(name, task, sigma2, kl_coeff, use_new_arch):
 
     
     metrics = {'model': name}
+    
+    if just_train:
+        task = None
         
     if task == "fid":
         gmm_fid, stdg_fid = get_fid(lvm, n_samples=1000, save_samples=False)
@@ -141,7 +152,8 @@ def run(name, task, sigma2, kl_coeff, use_new_arch):
         metrics["mse_val"] = mse_val
         print(f"Train MSE: {mse_train}, Val MSE: {mse_val}")
     else:
-        raise ValueError(f"Unknown task: {task}")
+        print("No task specified. Skipping evaluation.")
+        return
 
     if os.path.exists(metrics_file):
         with open(metrics_file, "r") as f:

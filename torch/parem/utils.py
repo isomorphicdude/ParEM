@@ -14,7 +14,7 @@ import PIL
 import torchvision.transforms.functional as functional
 from matplotlib import pyplot as plt
 import torchvision.transforms as transforms
-from torchvision.datasets import MNIST
+from torchvision.datasets import MNIST, CIFAR10
 import os
 from torch.utils.data import TensorDataset
 from torchvision.utils import make_grid
@@ -128,6 +128,34 @@ def get_mnist(root_path: Union[str, Path],
                                                   width=width,
                                                   height=height,
                                                   name=f'MNIST_{n_images}')
+    tensor_dataset.n_classes = 10
+    return tensor_dataset
+
+def get_cifar10(root_path: Union[str, Path],
+                n_images: int,
+                width: int = 32,
+                height: int = 32,
+                train: bool = True):
+    """Return the CIFAR-10 dataset as `DatasetWithIndicesAndDetails`"""
+    dataset = CIFAR10(root_path, train=train, download=True)
+
+    # Transform dataset into torch tensors with values in [-1, 1] and discard
+    # all but the first n_image images.
+    transform = transforms.Compose([PIL.Image.fromarray,
+                                    transforms.Resize((width, height)),
+                                    transforms.ToTensor(),
+                                    transforms.Normalize((0.5, 0.5, 0.5),
+                                                         (0.5, 0.5, 0.5)),
+                                    ])
+    images = torch.stack([transform(dataset.data[i])
+                          for i in range(n_images)])
+
+    tensor_dataset = DatasetWithIndicesAndDetails(images,
+                                                  dataset.targets[:n_images],
+                                                  n_channels=3,
+                                                  width=width,
+                                                  height=height,
+                                                  name=f'CIFAR10_{n_images}')
     tensor_dataset.n_classes = 10
     return tensor_dataset
 

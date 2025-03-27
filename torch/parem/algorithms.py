@@ -783,8 +783,9 @@ class VI(Algorithm):
                          theta_optimizer=theta_optimizer,
                          device=device,
                          n_particles=n_particles)
-        self._encoder = NormalVI(self._model.x_dim,
-                                 n_in_channel=dataset.n_channels)\
+        self._encoder = NormalVI(nc=dataset.n_channels,
+                                 nz=model.x_dim,
+                                 nif=48)\
             .to(self.device)
         self.use_common_optimizer = use_common_optimizer
         if use_common_optimizer:
@@ -852,7 +853,6 @@ class VI(Algorithm):
             
         self._posterior_up_to_date = False
         return loss.item()
-
     def sample_image_posterior(self, idx: int, n: int):
         """
         For a description, see inherited `Algorithm` class.
@@ -860,13 +860,9 @@ class VI(Algorithm):
         self.eval()
         with torch.no_grad():
             image = self.dataset[idx][0].unsqueeze(0)
-            mu, var = self._encoder(image.to(self.device))
-            # Sample latent variable
-            z = torch.randn(n,
-                            self._model.x_dim).to(mu.device) * var ** 0.5 + mu
-
-            posterior_samples = self._model(z.to(self.device)).detach()\
-                .to(image.device)
+            mu, logvar = self._encoder(image.to(self.device))
+            z = torch.randn(n, self._model.x_dim).to(mu.device) * torch.exp(0.5 * logvar) + mu
+            posterior_samples = self._model(z.to(self.device)).detach().to(image.device)
             utils.show_images(torch.concat([image, posterior_samples], dim=0))
 
     def update_posterior(self):
@@ -876,19 +872,14 @@ class VI(Algorithm):
         self.eval()
         if not self._posterior_up_to_date:
             batches = torch.utils.data.DataLoader(self.dataset,
-                                                  batch_size=750,
-                                                  pin_memory=True)
+                                                    batch_size=750,
+                                                    pin_memory=True)
             for img_batch, *_, idx in batches:
-                #  Use the encoder to infer the latent distribution
-                mu, var = self._encoder(img_batch.to(self.device))
-                # Sample from the desired distribution
+                mu, logvar = self._encoder(img_batch.to(self.device))
                 z = torch.randn(img_batch.shape[0],
                                 self.n_particles,
-                                self._model.x_dim).to(mu.device) \
-                    * var.unsqueeze(1) ** 0.5 + mu.unsqueeze(1)
-                # update the posterior
-                self._posterior[idx] = z.clone().detach()\
-                    .to(self._posterior.device)
+                                self._model.x_dim).to(mu.device) * torch.exp(0.5 * logvar).unsqueeze(1) + mu.unsqueeze(1)
+                self._posterior[idx] = z.clone().detach().to(self._posterior.device)
         self._posterior_up_to_date = True
     
     

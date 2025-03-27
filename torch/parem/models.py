@@ -197,46 +197,74 @@ class EncoderOutput(nn.Module):
         mu = self.fc_mu(x)
         logvar = self.fc_logvar(x)
         return mu, logvar
-
-
+    
 class NormalVI(nn.Module):
-    """
-    Encoder Network for a Variational Autoencoder (VAE).
-    Designed as a reverse of the NLVM generator.
-    """
-    def __init__(
-        self,
-        x_dim: int,
-        n_in_channel: int = 1,
-        ngf: int = 16,
-        n_hidden: int = 512,
-        latent_dim: int = 64,):
+    def __init__(self, nc, nz, nif):
         super(NormalVI, self).__init__()
-
-        self.input_dim = 32
-        self.latent_dim = latent_dim
-
-        self.reverse_deterministic_1 = Deterministic(x_dim, ngf)
-
-        self.downsample_conv1 = nn.Conv2d(
-            ngf, ngf * 2, kernel_size=4, stride=2, padding=1
+        self.main = nn.Sequential(
+            nn.Conv2d(nc, nif, 3, 1, 1, bias=False),
+            nn.BatchNorm2d(nif),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(nif, nif*2, 4, 2, 1,bias=False),
+            nn.BatchNorm2d(nif*2),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(nif *2, nif * 4, 4, 2, 1,bias=False),
+            nn.BatchNorm2d(nif * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(nif * 4, nif * 8, 4, 2, 1,bias=False),
+            nn.BatchNorm2d(nif * 8),
+            nn.LeakyReLU(0.2, inplace=True),
         )
 
-        self.downsample_conv2 = nn.Conv2d(
-            ngf * 2, ngf * 2, kernel_size=4, stride=2, padding=1
-        )
+        self.conv51 = nn.Conv2d(nif*8, nz, 4, 1, 0)
+        self.conv52 = nn.Conv2d(nif*8, nz, 4, 1, 0) # for log_sigma
 
-        self.output_layer = EncoderOutput(
-            ngf * 2 * (self.input_dim // 4) ** 2, latent_dim
-        )
+    def forward(self, input):
+        out = self.main(input)
+        oI_mu = self.conv51(out)
+        oI_log_sigma = self.conv52(out) # actually its log variance
+        # [batch nz 1 1]
+        return oI_mu, oI_log_sigma
 
-    def forward(
-        self, x: TensorType[..., "n_channels", "in_dim1", "in_dim2"]
-    ) -> Tuple[TensorType[..., "latent_dim"], TensorType[..., "latent_dim"]]:
-        out = self.reverse_deterministic_1(x)
-        out = self.downsample_conv1(out)
-        out = self.downsample_conv2(out)
-        out = out.view(out.size(0), -1)  # Flatten for output layer
-        mu, logvar = self.output_layer(out)
-        return mu, logvar
+
+# class NormalVI(nn.Module):
+#     """
+#     Encoder Network for a Variational Autoencoder (VAE).
+#     Designed as a reverse of the NLVM generator.
+#     """
+#     def __init__(
+#         self,
+#         x_dim: int,
+#         n_in_channel: int = 1,
+#         ngf: int = 16,
+#         n_hidden: int = 512,
+#         latent_dim: int = 64,):
+#         super(NormalVI, self).__init__()
+
+#         self.input_dim = 32
+#         self.latent_dim = latent_dim
+
+#         self.reverse_deterministic_1 = Deterministic(x_dim, ngf)
+
+#         self.downsample_conv1 = nn.Conv2d(
+#             ngf, ngf * 2, kernel_size=4, stride=2, padding=1
+#         )
+
+#         self.downsample_conv2 = nn.Conv2d(
+#             ngf * 2, ngf * 2, kernel_size=4, stride=2, padding=1
+#         )
+
+#         self.output_layer = EncoderOutput(
+#             ngf * 2 * (self.input_dim // 4) ** 2, latent_dim
+#         )
+
+#     def forward(
+#         self, x: TensorType[..., "n_channels", "in_dim1", "in_dim2"]
+#     ) -> Tuple[TensorType[..., "latent_dim"], TensorType[..., "latent_dim"]]:
+#         out = self.reverse_deterministic_1(x)
+#         out = self.downsample_conv1(out)
+#         out = self.downsample_conv2(out)
+#         out = out.view(out.size(0), -1)  # Flatten for output layer
+#         mu, logvar = self.output_layer(out)
+#         return mu, logvar
 

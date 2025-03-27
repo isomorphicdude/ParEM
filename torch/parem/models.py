@@ -224,5 +224,5 @@ class NormalVI(nn.Module):
         y = F.relu(y)
         y = self.fc2(y)
         mu = y[..., :self.x_dim]
-        var = F.softplus(y[..., self.x_dim:])
-        return mu, var + 1e-3
+        var = y[..., self.x_dim:]
+        return mu, var

@@ -774,6 +774,7 @@ class VI(Algorithm):
                  q_step_size: float = 1e-3,
                  q_optimizer: Union[str, Optimizer] = 'sgd',
                  train_batch_size: int = 100,
+                 use_common_optimizer: bool = True,
                  device: str = 'cpu'):
         super().__init__(model,
                          dataset,
@@ -785,8 +786,14 @@ class VI(Algorithm):
         self._encoder = NormalVI(self._model.x_dim,
                                  n_in_channel=dataset.n_channels)\
             .to(self.device)
-        self._encoder_opt = OPTIMIZERS[q_optimizer](self._encoder.parameters(),
-                                                    lr=q_step_size)
+        self.use_common_optimizer = use_common_optimizer
+        if use_common_optimizer:
+            self.optimizer = OPTIMIZERS[theta_optimizer](
+                list(self._model.parameters()) + list(self._encoder.parameters()),
+                lr=theta_step_size)
+        else:
+            self._encoder_opt = OPTIMIZERS[q_optimizer](self._encoder.parameters(),
+                                                        lr=q_step_size)
         self.name = 'VI'
 
     def train(self):
@@ -822,22 +829,28 @@ class VI(Algorithm):
         mu, var = self._encoder(img_batch)
         z = torch.randn(img_batch.shape[0],
                         self.n_particles,
-                        self._model.x_dim).to(mu.device) * var.unsqueeze(1)\
+                        self._model.x_dim).to(mu.device) * var.exp().unsqueeze(1)\
             ** 0.5 + mu.unsqueeze(1)
 
         # Compute loss
         log_prob = self._model.log_p_v(img_batch, z).mean()
-        kl = 0.5 * (1 + torch.log(var) - mu ** 2 - var).sum()
+        kl = 0.5 * (1 + var - mu ** 2 - var.exp()).sum()
         # There is an additional multiplicative constant
         # that is the dataset size.
         loss = - (log_prob - kl) * (1. / img_batch.shape[0])
 
         # Update variational distribution and model.
-        self._encoder_opt.zero_grad()
-        self._theta_opt.zero_grad()
-        loss.backward()
-        self._encoder_opt.step()
-        self._theta_opt.step()
+        if self.use_common_optimizer:
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+        else:
+            self._encoder_opt.zero_grad()
+            self._theta_opt.zero_grad()
+            loss.backward()
+            self._encoder_opt.step()
+            self._theta_opt.step()
+            
         self._posterior_up_to_date = False
         return loss.item()
 
@@ -894,7 +907,7 @@ class VI(Algorithm):
             mu, var = self._encoder(images.to(self.device))
             z = torch.randn(images.shape[0],
                             1,
-                            self._model.x_dim).to(mu.device) * var.unsqueeze(1)\
+                            self._model.x_dim).to(mu.device) * var.exp().unsqueeze(1) \
                 ** 0.5 + mu.unsqueeze(1)
             z = z.view(images.shape[0], self._model.x_dim)
             return z

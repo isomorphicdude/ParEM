@@ -79,13 +79,24 @@ CHAIN_PARAM = False # whether to use the same optimizer for q and theta
     help="Use new architecture for the generator",
 )
 @click.option(
+    "--use-enc-recon",
+    is_flag=True,
+    default=False,
+    help="Use encoder for reconstruction",
+)
+@click.option(
     "--just-train",
     is_flag=True,
     default=False,
     help="Just train the model without evaluation",
 )
-def run(name, task, sigma2, kl_coeff, use_new_arch, just_train):
+def run(name, task, sigma2, kl_coeff, use_new_arch, use_enc_recon, just_train):
     click.echo(f"Running {name} on {task} task")
+    click.echo(f"Using sigma2: {sigma2}, kl_coeff: {kl_coeff}")
+    click.echo(f"Using new architecture? {use_new_arch}")
+    click.echo(f"Using encoder for reconstruction? {use_enc_recon}")
+    click.echo(f"Just train? {just_train}")
+    click.echo(f"Using device: {DEVICE}")
     # Set random seeds for reproducibility
     random.seed(42)
     np.random.seed(42)
@@ -98,7 +109,8 @@ def run(name, task, sigma2, kl_coeff, use_new_arch, just_train):
     # Initialize the NLVM model
     generator = NLVM(x_dim=X_DIM, sigma2=sigma2, nc=1).to(DEVICE)
 
-    lvm = get_model(name, generator, mnist_train, kl_coeff=kl_coeff, use_new_arch=use_new_arch)
+    lvm = get_model(name, generator, mnist_train, kl_coeff=kl_coeff, use_new_arch=use_new_arch,
+                    use_enc_recon=use_enc_recon)
     
     os.makedirs(MODEL_CKPT_PATH, exist_ok=True)
     os.makedirs(MODEL_IMG_PATH, exist_ok=True)
@@ -280,7 +292,7 @@ def get_recon(lvm, n_samples, train_dataset, val_dataset, batch_size=100):
     
     return mse_train, mse_val
 
-def get_model(name, generator, dataset, chain_param=CHAIN_PARAM, kl_coeff=1.0, use_new_arch=False) -> Algorithm:
+def get_model(name, generator, dataset, chain_param=CHAIN_PARAM, kl_coeff=1.0, use_new_arch=False, use_enc_recon=False) -> Algorithm:
     if name == "pgd":
         return get_pgd(PGD, generator, dataset)
     elif name == "shortrun":
@@ -301,6 +313,7 @@ def get_model(name, generator, dataset, chain_param=CHAIN_PARAM, kl_coeff=1.0, u
             use_common_optimizer=chain_param,
             kl_coeff=kl_coeff,
             use_new_arch=use_new_arch,
+            use_encoder_recon=use_enc_recon,
         )
     else:
         raise ValueError(f"Invalid model name: {name}")

@@ -163,10 +163,10 @@ class Algorithm:
                 stats_dic = {"gmm_fid": gmm_fid,
                              "stdg_fid": stdg_fid,
                              "mse": mse}
-
-            print(f"Epoch {epoch}: Loss {avg_loss:.3f},"
-                  f"" + "".join(f" {key} {val:.2f},"
-                                for key, val in stats_dic.items()))
+            if epoch % 20 == 0:
+                print(f"Epoch {epoch}: Loss {avg_loss:.3f},"
+                    f"" + "".join(f" {key} {val:.2f},"
+                                    for key, val in stats_dic.items()))
             # Log checkpoint:
             if wandb_log:
                 if log_images:
@@ -780,6 +780,7 @@ class VI(Algorithm):
                  use_common_optimizer: bool = True,
                  kl_coeff: float = 1.0,
                  use_new_arch: bool = False,
+                 use_encoder_recon: bool = False,
                  device: str = 'cpu'):
         super().__init__(model,
                          dataset,
@@ -799,6 +800,7 @@ class VI(Algorithm):
                                  n_in_channel=dataset.n_channels)\
             .to(self.device)
         self.kl_coeff = kl_coeff
+        self.use_encoder_recon = use_encoder_recon
         num_encoder_params = utils.count_parameters_in_M(self._encoder)
         print(f"Number of parameters in the encoder: {num_encoder_params:.3f}M")
         
@@ -911,14 +913,17 @@ class VI(Algorithm):
                patience: int = 50,
                ) -> TensorType[..., 'n_channels', 'width', 'height']:
         # if mask is not None:
-        return super().encode(images, mask, n_starts, patience)
         # else:
-        #     # use VAE's encoder
-        #     self.eval()
-        #     mu, logvar = self._encoder(images.to(self.device))
-        #     z = torch.randn(images.shape[0],
-        #                     1,
-        #                     self._model.x_dim).to(mu.device) * torch.exp(0.5 * logvar).unsqueeze(1) + mu.unsqueeze(1)
-        #     z = z.view(images.shape[0], self._model.x_dim)
-        #     return z
+        if self.use_encoder_recon and mask is None:
+            # use VAE's encoder for purely reconstruction
+            self.eval()
+            mu, logvar = self._encoder(images.to(self.device))
+            z = torch.randn(images.shape[0],
+                            1,
+                            self._model.x_dim).to(mu.device) * torch.exp(0.5 * logvar).unsqueeze(1) + mu.unsqueeze(1)
+            z = z.view(images.shape[0], self._model.x_dim)
+            return z
+        else:
+            # inpainting and other tasks
+            return super().encode(images, mask, n_starts, patience)
             

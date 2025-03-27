@@ -842,8 +842,8 @@ class VI(Algorithm):
         # Compute loss
         # log_prob = self._model.log_p_v(img_batch, z).mean()
         x_decoded = self._model(z)
-        recon_loss = 0.5 * ((img_batch.unsqueeze(1) - x_decoded) ** 2
-                                  / self._model.sigma2).sum([0, -3, -2, -1])
+        recon_loss = (0.5 * ((img_batch.unsqueeze(1) - x_decoded) ** 2
+                                  / self._model.sigma2).sum([0, -3, -2, -1])).mean()
         
         kl = -0.5 * (1 + logvar - mu ** 2 - logvar.exp()).sum() * 1e-4
         # There is an additional multiplicative constant

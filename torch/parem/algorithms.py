@@ -840,11 +840,15 @@ class VI(Algorithm):
                         self._model.x_dim).to(mu.device) * torch.exp(0.5 * logvar).unsqueeze(1) + mu.unsqueeze(1)
 
         # Compute loss
-        log_prob = self._model.log_p_v(img_batch, z).mean()
-        kl = 0.5 * (1 + logvar - mu ** 2 - logvar.exp()).sum() * 1e-4
+        # log_prob = self._model.log_p_v(img_batch, z).mean()
+        x_decoded = self._model(z)
+        recon_loss = 0.5 * ((img_batch.unsqueeze(1) - x_decoded) ** 2
+                                  / self._model.sigma2).sum([0, -3, -2, -1])
+        
+        kl = -0.5 * (1 + logvar - mu ** 2 - logvar.exp()).sum() * 1e-4
         # There is an additional multiplicative constant
         # that is the dataset size.
-        loss = - (log_prob - kl) * (1. / img_batch.shape[0])
+        loss = (recon_loss + kl) * (1. / img_batch.shape[0])
 
         # Update variational distribution and model.
         if self.use_common_optimizer:

@@ -203,7 +203,7 @@ class Algorithm:
     def encode(self,
                images: TensorType[..., 'n_channels', 'width', 'height'],
                mask: TensorType['width', 'height'] = None,
-               n_starts: int = 4,
+               n_starts: int = 1,
                patience: int = 50,
                ) -> TensorType[..., 'n_channels', 'width', 'height']:
         """
@@ -883,7 +883,7 @@ class VI(Algorithm):
     def encode(self,
                images: TensorType[..., 'n_channels', 'width', 'height'],
                mask: TensorType['width', 'height'] = None,
-               n_starts: int = 4,
+               n_starts: int = 1,
                patience: int = 50,
                ) -> TensorType[..., 'n_channels', 'width', 'height']:
         if mask is not None:
@@ -892,10 +892,11 @@ class VI(Algorithm):
         else:
             # use VAE's encoder
             self.eval()
-            mu, var = self._encoder(images)
+            mu, var = self._encoder(images.to(self.device))
             z = torch.randn(images.shape[0],
-                            self.n_particles,
+                            1,
                             self._model.x_dim).to(mu.device) * var.unsqueeze(1)\
                 ** 0.5 + mu.unsqueeze(1)
+            z = z.view(images.shape[0], self._model.x_dim)
             return z
             

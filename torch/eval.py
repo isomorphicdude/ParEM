@@ -10,6 +10,7 @@ import random
 
 import click
 import torch
+import torchvision
 import numpy as np
 
 # Import custom modules
@@ -19,6 +20,7 @@ from parem.utils import get_mnist
 from parem.stats import compute_fid
 
 MODEL_CKPT_PATH = "/content/ParEM/checkpoints"
+MODEL_IMG_PATH = "/content/ParEM/images"
 DATASET_PATH = "/content/ParEM/datasets/MNIST"
 N_IMAGES = 10000
 # Training settings
@@ -120,11 +122,23 @@ def run(name, task):
         mse_train, mse_val = get_recon(lvm, n_samples=1000, train_dataset=mnist_train, val_dataset=mnist_test, batch_size=100)
         metrics["mse_train"] = mse_train
         metrics["mse_val"] = mse_val
+        print(f"Train MSE: {mse_train}, Val MSE: {mse_val}")
     else:
         raise ValueError(f"Unknown task: {task}")
 
+    if os.path.exists(metrics_file):
+        with open(metrics_file, "r") as f:
+            try:
+                previous_results = yaml.safe_load(f)
+                if not isinstance(previous_results, list):
+                    previous_results = [previous_results]
+            except Exception:
+                previous_results = []
+    else:
+        previous_results = []
+    previous_results.append(metrics)
     with open(metrics_file, "w") as f:
-        yaml.dump(metrics, f)
+        yaml.dump(previous_results, f)
         
     print(f"Metrics saved to {metrics_file}")
 
@@ -151,9 +165,16 @@ def get_fid(lvm, n_samples, save_samples=False):
     stdg_fid = compute_fid(data_samples,stdg_samples,nn_feature=None)
 
     if save_samples:
-        torch.save(data_samples, f"{name}_data_samples.pt")
-        torch.save(gmm_samples, f"{name}_gmm_samples.pt")
-        torch.save(stdg_samples, f"{name}_stdg_samples.pt")
+        torch.save(data_samples, os.path.join(MODEL_IMG_PATH, f"{name}_data_samples.pt"))
+        torch.save(gmm_samples, os.path.join(MODEL_IMG_PATH, f"{name}_gmm_samples.pt"))
+        torch.save(stdg_samples, os.path.join(MODEL_IMG_PATH, f"{name}_stdg_samples.pt"))
+        
+    # plot and save images
+    gmm_grid = torchvision.utils.make_grid(gmm_samples[:100,...], nrow=10)
+    stdg_grid = torchvision.utils.make_grid(stdg_samples[:100, ...], nrow=10)
+    torchvision.utils.save_image(gmm_grid, os.path.join(MODEL_IMG_PATH, f"{name}_gmm_samples.png"))
+    torchvision.utils.save_image(stdg_grid, os.path.join(MODEL_IMG_PATH, f"{name}_stdg_samples.png"))
+    
     return gmm_fid, stdg_fid
 
 
@@ -172,6 +193,13 @@ def get_inpaint(lvm, n_samples, val_dataset, batch_size=100, mask=None):
         mse_total += batch_mse.sum().item()
 
     mse = mse_total / n_samples
+    
+    # plot and save images
+    true_grid = torchvision.utils.make_grid(batch_imgs, nrow=10)
+    recon_grid = torchvision.utils.make_grid(batch_reconstructed, nrow=10)
+    torchvision.utils.save_image(true_grid, os.path.join(MODEL_IMG_PATH, f"{name}_true.png"))
+    torchvision.utils.save_image(recon_grid, os.path.join(MODEL_IMG_PATH, f"{name}_recon.png"))
+    
     return mse
 
 
@@ -207,6 +235,17 @@ def get_recon(lvm, n_samples, train_dataset, val_dataset, batch_size=100):
         
     mse_train /= n_samples
     mse_val /= n_samples
+    
+    # plot and save images
+    train_true_grid = torchvision.utils.make_grid(train_batch_imgs, nrow=10)
+    train_recon_grid = torchvision.utils.make_grid(train_batch_reconstructed, nrow=10)
+    val_true_grid = torchvision.utils.make_grid(val_batch_imgs, nrow=10)
+    val_recon_grid = torchvision.utils.make_grid(val_batch_reconstructed, nrow=10)
+    
+    torchvision.utils.save_image(train_true_grid, os.path.join(MODEL_IMG_PATH, f"{name}_train_true.png"))
+    torchvision.utils.save_image(train_recon_grid, os.path.join(MODEL_IMG_PATH, f"{name}_train_recon.png"))
+    torchvision.utils.save_image(val_true_grid, os.path.join(MODEL_IMG_PATH, f"{name}_val_true.png"))
+    torchvision.utils.save_image(val_recon_grid, os.path.join(MODEL_IMG_PATH, f"{name}_val_recon.png"))
     
     return mse_train, mse_val
 

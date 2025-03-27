@@ -15,7 +15,7 @@ from torch.optim import Optimizer
 from pathlib import Path
 
 import parem.utils as utils
-from parem.models import NLVM, NormalVI
+from parem.models import NLVM, NormalVI, OldNormalVI
 import parem.stats as stats
 
 OPTIMIZERS = {'sgd': torch.optim.SGD,
@@ -779,6 +779,7 @@ class VI(Algorithm):
                  train_batch_size: int = 100,
                  use_common_optimizer: bool = True,
                  kl_coeff: float = 1.0,
+                 use_new_arch: bool = False,
                  device: str = 'cpu'):
         super().__init__(model,
                          dataset,
@@ -787,9 +788,15 @@ class VI(Algorithm):
                          theta_optimizer=theta_optimizer,
                          device=device,
                          n_particles=n_particles)
-        self._encoder = NormalVI(nc=dataset.n_channels,
-                                 nz=model.x_dim,
-                                 nif=48)\
+        if use_new_arch:
+            self._encoder = NormalVI(nc=dataset.n_channels,
+                                    nz=model.x_dim,
+                                    nif=48)\
+                .to(self.device)
+        else:
+            self._encoder = OldNormalVI(
+                self._model.x_dim,
+                                 n_in_channel=dataset.n_channels)\
             .to(self.device)
         self.kl_coeff = kl_coeff
         num_encoder_params = utils.count_parameters_in_M(self._encoder)

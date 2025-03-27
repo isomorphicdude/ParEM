@@ -72,7 +72,13 @@ CHAIN_PARAM = False # whether to use the same optimizer for q and theta
     default=1.0,
     help="KL coefficient",
 )
-def run(name, task, sigma2, kl_coeff):
+@click.option(
+    "--use-new-arch",
+    is_flag=True,
+    default=False,
+    help="Use new architecture for the generator",
+)
+def run(name, task, sigma2, kl_coeff, use_new_arch):
     click.echo(f"Running {name} on {task} task")
     # Set random seeds for reproducibility
     random.seed(42)
@@ -86,7 +92,7 @@ def run(name, task, sigma2, kl_coeff):
     # Initialize the NLVM model
     generator = NLVM(x_dim=X_DIM, sigma2=sigma2, nc=1).to(DEVICE)
 
-    lvm = get_model(name, generator, mnist_train, kl_coeff=kl_coeff)
+    lvm = get_model(name, generator, mnist_train, kl_coeff=kl_coeff, use_new_arch=use_new_arch)
     
     os.makedirs(MODEL_CKPT_PATH, exist_ok=True)
     os.makedirs(MODEL_IMG_PATH, exist_ok=True)
@@ -152,6 +158,8 @@ def run(name, task, sigma2, kl_coeff):
         yaml.dump(previous_results, f)
         
     print(f"Metrics saved to {metrics_file}")
+
+
 
 def get_fid(lvm, n_samples, save_samples=False):
     """
@@ -260,7 +268,7 @@ def get_recon(lvm, n_samples, train_dataset, val_dataset, batch_size=100):
     
     return mse_train, mse_val
 
-def get_model(name, generator, dataset, chain_param=CHAIN_PARAM, kl_coeff=1.0) -> Algorithm:
+def get_model(name, generator, dataset, chain_param=CHAIN_PARAM, kl_coeff=1.0, use_new_arch=False) -> Algorithm:
     if name == "pgd":
         return get_pgd(PGD, generator, dataset)
     elif name == "shortrun":
@@ -280,6 +288,7 @@ def get_model(name, generator, dataset, chain_param=CHAIN_PARAM, kl_coeff=1.0) -
             q_step_size=VAE_Q_LR,
             use_common_optimizer=chain_param,
             kl_coeff=kl_coeff,
+            use_new_arch=use_new_arch,
         )
     else:
         raise ValueError(f"Invalid model name: {name}")

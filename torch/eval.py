@@ -44,6 +44,7 @@ VAE_Q_OPTIM = "adam"
 VAE_THETA_OPTIM = "rmsprop"
 VAE_Q_LR = 1e-3
 VAE_THETA_LR = 1e-3
+CHAIN_PARAM = False # whether to use the same optimizer for q and theta
 
 
 @click.command()
@@ -65,7 +66,13 @@ VAE_THETA_LR = 1e-3
     default=1e-4,
     help="Likelihood variance",
 )
-def run(name, task, sigma2):
+@click.option(
+    "--kl_coeff",
+    type=float,
+    default=1.0,
+    help="KL coefficient",
+)
+def run(name, task, sigma2, kl_coeff):
     click.echo(f"Running {name} on {task} task")
     # Set random seeds for reproducibility
     random.seed(42)
@@ -79,8 +86,7 @@ def run(name, task, sigma2):
     # Initialize the NLVM model
     generator = NLVM(x_dim=X_DIM, sigma2=sigma2, nc=1).to(DEVICE)
 
-    lvm = get_model(name, generator, mnist_train)
-    
+    lvm = get_model(name, generator, mnist_train, kl_coeff=kl_coeff)
     
     os.makedirs(MODEL_CKPT_PATH, exist_ok=True)
     os.makedirs(MODEL_IMG_PATH, exist_ok=True)
@@ -254,7 +260,7 @@ def get_recon(lvm, n_samples, train_dataset, val_dataset, batch_size=100):
     
     return mse_train, mse_val
 
-def get_model(name, generator, dataset) -> Algorithm:
+def get_model(name, generator, dataset, chain_param=CHAIN_PARAM, kl_coeff=1.0) -> Algorithm:
     if name == "pgd":
         return get_pgd(PGD, generator, dataset)
     elif name == "shortrun":
@@ -272,6 +278,8 @@ def get_model(name, generator, dataset) -> Algorithm:
             q_optimizer=VAE_Q_OPTIM,
             theta_step_size=VAE_THETA_LR,
             q_step_size=VAE_Q_LR,
+            use_common_optimizer=chain_param,
+            kl_coeff=kl_coeff,
         )
     else:
         raise ValueError(f"Invalid model name: {name}")

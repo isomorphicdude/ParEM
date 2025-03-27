@@ -778,6 +778,7 @@ class VI(Algorithm):
                  q_optimizer: Union[str, Optimizer] = 'sgd',
                  train_batch_size: int = 100,
                  use_common_optimizer: bool = True,
+                 kl_coeff: float = 1.0,
                  device: str = 'cpu'):
         super().__init__(model,
                          dataset,
@@ -790,6 +791,7 @@ class VI(Algorithm):
                                  nz=model.x_dim,
                                  nif=48)\
             .to(self.device)
+        self.kl_coeff = kl_coeff
         num_encoder_params = utils.count_parameters_in_M(self._encoder)
         print(f"Number of parameters in the encoder: {num_encoder_params:.3f}M")
         
@@ -845,7 +847,7 @@ class VI(Algorithm):
         recon_loss = (0.5 * ((img_batch.unsqueeze(1) - x_decoded) ** 2
                                   / self._model.sigma2).sum([0, -3, -2, -1])).mean()
         
-        kl = -0.5 * (1 + logvar - mu ** 2 - logvar.exp()).sum() * 1e-4
+        kl = -0.5 * (1 + logvar - mu ** 2 - logvar.exp()).sum() * self.kl_coeff
         # There is an additional multiplicative constant
         # that is the dataset size.
         loss = (recon_loss + kl) * (1. / img_batch.shape[0])

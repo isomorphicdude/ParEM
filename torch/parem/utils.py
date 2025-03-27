@@ -6,7 +6,7 @@
 #   (`save_checkpoint`, `load_checkpoint`).
 # * displaying images (`show_images`).
 # -----------------------------------------------------------
-
+import pickle
 from typing import Tuple, Optional, Union
 import torch
 import numpy as np
@@ -67,28 +67,14 @@ class DatasetWithIndicesAndDetails(TensorDataset):
     def __repr__(self):
         return self.name
 
-
-def save_checkpoint(algorithm, path: Union[str, Path]) -> None:
-    """Saves checkpoint at path."""
-    # Check if parent directory exists, if not create it:
+def save_model_ckpt(algorithm, path: Union[str, Path]) -> None:
+    """Saves model checkpoint at path."""
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    if hasattr(algorithm, "dataset"):
-        temp_dataset = algorithm.dataset
-        algorithm.dataset = None
-    if hasattr(algorithm, "q_batch_index"):
-        temp_q_batch_index = algorithm.q_batch_index
-        algorithm.q_batch_index = None
-    if hasattr(algorithm, "q_batch_index_dl"):
-        temp_q_batch_index_dl = algorithm.q_batch_index_dl
-        algorithm.q_batch_index_dl = None
-    torch.save(algorithm, path)
-    if hasattr(algorithm, "dataset"):
-        algorithm.dataset = temp_dataset
-    if hasattr(algorithm, "q_batch_index"):
-        algorithm.q_batch_index = temp_q_batch_index
-    if hasattr(algorithm, "q_batch_index_dl"):
-        algorithm.q_batch_index_dl = temp_q_batch_index_dl
-
+    checkpoint = {
+        'generator': algorithm._model.state_dict(),
+        'particles': algorithm._posterior
+    }
+    torch.save(checkpoint, path)
 
 def load_checkpoint(path: Union[str, Path]):
     """Loads checkpoint from path."""

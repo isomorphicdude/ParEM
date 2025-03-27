@@ -120,7 +120,7 @@ class NLVM(nn.Module):
                  nc: int = 3,
                  ngf: int = 16,
                  coef: int = 4,
-                 sigma2: int = 1.):
+                 sigma2: float = 1.):
         super(NLVM, self).__init__()
         self.sigma2 = sigma2
         self.x_dim = x_dim

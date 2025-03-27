@@ -8,14 +8,15 @@
 import torch
 from typing import Union, Optional
 from torchtyping import TensorType  # type: ignore
-from parem.models import NLVM, NormalVI
-import parem.stats as stats
 from torch.utils.data import TensorDataset
-import parem.utils as utils
 import wandb
 import torch.distributions as dists
 from torch.optim import Optimizer
 from pathlib import Path
+
+import parem.utils as utils
+from parem.models import NLVM, NormalVI
+import parem.stats as stats
 
 OPTIMIZERS = {'sgd': torch.optim.SGD,
               'adagrad': torch.optim.Adagrad,
@@ -35,12 +36,14 @@ class Algorithm:
                  train_batch_size: int = 100,
                  device: str = 'cpu',
                  n_particles: int = 1,
+                 val_dataset: TensorDataset = None,
                  ):
 
         self.train_batch_size = train_batch_size
         self.device = device
         self._model = model
         self.dataset = dataset
+        self.val_dataset = val_dataset
         self.q_step_size = q_step_size
         self._theta_optimizer = theta_optimizer
         self.theta_step_size = theta_step_size
@@ -65,7 +68,7 @@ class Algorithm:
 
     def run(self,
             num_epochs: int,
-            path: Optional[Path],
+            path,
             wandb_log: bool = False,
             log_images: bool = True,
             compute_stats: bool = False) -> None:
@@ -104,14 +107,17 @@ class Algorithm:
             self._losses.append(avg_loss)
 
             # Save checkpoint:
-            utils.save_checkpoint(self, path)
-            if wandb_log:
-                from pathlib import Path
-                utils.save_checkpoint(self,
-                                      Path(wandb.run.dir) / f"{epoch}.cpt")
-                # wandb.save must take a string.
-                wandb.save(str((Path(wandb.run.dir)
-                                / f"{epoch}.cpt").resolve()))
+            # utils.save_checkpoint(self, path)
+
+            # save the checkpoint of the generator
+            torch.save(self._model.state_dict(), path)
+            # if wandb_log:
+            #     from pathlib import Path
+            #     utils.save_checkpoint(self,
+            #                           Path(wandb.run.dir) / f"{epoch}.cpt")
+            #     # wandb.save must take a string.
+            #     wandb.save(str((Path(wandb.run.dir)
+            #                     / f"{epoch}.cpt").resolve()))
 
             self._model.eval()
             stats_dic = {}

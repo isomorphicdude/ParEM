@@ -37,7 +37,6 @@ X_DIM = 64  # d_x: dimension of latent space
 # PGD Settings
 STEP_SIZE = 1e-4  # h: step size
 LAMBDA = 1e-3 / (STEP_SIZE * N_IMAGES)  # lambda
-N_PARTICLES = 10  # N: number of particles
 
 # VAE settings
 VAE_Q_OPTIM = "adam"
@@ -67,6 +66,12 @@ CHAIN_PARAM = False  # whether to use the same optimizer for q and theta
     help="Likelihood variance",
 )
 @click.option(
+    "--npar",
+    type=int,
+    default=10,
+    help="No. of particles"
+)
+@click.option(
     "--kl_coeff",
     type=float,
     default=1.0,
@@ -90,9 +95,10 @@ CHAIN_PARAM = False  # whether to use the same optimizer for q and theta
     default=False,
     help="Just train the model without evaluation",
 )
-def run(name, task, sigma2, kl_coeff, use_new_arch, use_enc_recon, just_train):
+def run(name, task, sigma2, npar, kl_coeff, use_new_arch, use_enc_recon, just_train):
     click.echo(f"Running {name} on {task} task")
     click.echo(f"Using sigma2: {sigma2}, kl_coeff: {kl_coeff}")
+    click.echo(f"Using {npar} particles for the model")
     click.echo(f"Using new architecture? {use_new_arch}")
     click.echo(f"Using encoder for reconstruction? {use_enc_recon}")
     click.echo(f"Just train? {just_train}")
@@ -116,6 +122,7 @@ def run(name, task, sigma2, kl_coeff, use_new_arch, use_enc_recon, just_train):
         kl_coeff=kl_coeff,
         use_new_arch=use_new_arch,
         use_enc_recon=use_enc_recon,
+        num_particles=npar
     )
 
     os.makedirs(MODEL_CKPT_PATH, exist_ok=True)
@@ -332,19 +339,20 @@ def get_model(
     kl_coeff=1.0,
     use_new_arch=False,
     use_enc_recon=False,
+    num_particles=10,
 ) -> Algorithm:
     if name == "pgd":
-        return get_pgd(PGD, generator, dataset)
+        return get_pgd(PGD, generator, dataset, num_particles)
     elif name == "shortrun":
-        return get_pgd(ShortRun, generator, dataset)
+        return get_pgd(ShortRun, generator, dataset, num_particles)
     elif name == "abp":
-        return get_pgd(AlternatingBackprop, generator, dataset)
+        return get_pgd(AlternatingBackprop, generator, dataset, num_particles)
     elif name == "vae":
         return VI(
             model=generator,
             dataset=dataset,
             train_batch_size=128,
-            n_particles=N_PARTICLES,
+            n_particles=num_particles,
             device=DEVICE,
             theta_optimizer=OPTIMIZER,
             q_optimizer=VAE_Q_OPTIM,
@@ -359,13 +367,13 @@ def get_model(
         raise ValueError(f"Invalid model name: {name}")
 
 
-def get_pgd(class_inst, generator, dataset) -> Algorithm:
+def get_pgd(class_inst, generator, dataset, num_particles) -> Algorithm:
     return class_inst(
         model=generator,
         dataset=dataset,
         train_batch_size=128,
         lambd=LAMBDA,
-        n_particles=N_PARTICLES,
+        n_particles=num_particles,
         particle_step_size=STEP_SIZE,
         device=DEVICE,
         theta_optimizer=OPTIMIZER,
